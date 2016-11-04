@@ -11,8 +11,11 @@ use GD;
 use Image::Size;
 use JSON;
 use List::Util qw( max shuffle sum );
+use Getopt::Long;
 
 use constant WIDTH => 2560;
+
+my %O = ( output => "montage.png" );
 
 my @image      = ();
 my $avg_aspect = 0;
