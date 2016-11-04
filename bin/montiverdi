@@ -15,7 +15,30 @@ use Getopt::Long;
 
 use constant WIDTH => 2560;
 
-my %O = ( output => "montage.png" );
+use constant USAGE => <<EOT;
+Syntax: $0 [options]
+
+Options:
+    -o, --output <file.png>   Output filename
+    -w, --width  <width>      Output width in pixels
+    -a, --across <n>          Number of images on first line
+    -g, --grow   <n>          Growth factor for line width
+
+EOT
+
+my %O = (
+  output => "montage.png",
+  width  => WIDTH,
+  across => undef,
+  grow   => 1,
+);
+
+GetOptions(
+  'output:s' => \$O{output},
+  'width:i'  => \$O{width},
+  'across:i' => \$O{across},
+  'grow:s'   => \$O{grow},
+) or die USAGE;
 
 my @image      = ();
 my $avg_aspect = 0;
@@ -40,19 +63,20 @@ find {
 $avg_aspect /= @image;
 
 my @img = shuffle @image;
-my $use = 1 + int sqrt scalar @img;
+my $use = $O{across} // 1 + int sqrt scalar @img;
 
 my @spec = ();
 my $dir  = 1;
-while ( @img >= $use ) {
+while ( $use > 0 && @img >= int $use ) {
   push @spec,
    format_row( sort { $dir * ( $a->{aspect} <=> $b->{aspect} ) }
      splice @img,
-    0, $use );
+    0, int $use );
   $dir = -$dir;
+  $use *= $O{grow};
 }
 
-my $out_w = WIDTH;
+my $out_w = $O{width};
 my $out_h = sum map { $_->{height} } @spec;
 
 my $im = GD::Image->new( $out_w, $out_h, 1 );
@@ -71,21 +95,21 @@ for my $row (@spec) {
 }
 
 {
-  open my $fh, '>', 'montage.png';
+  open my $fh, '>', $O{output};
   $fh->print( $im->png );
 }
 
 #say JSON->new->pretty->canonical->encode( \@spec );
 
 sub format_row {
-  my @img    = @_;
+  my @img = @_;
   my $height = max map { $_->{height} } @img;
-  my $width  = 0;
+  my $width = 0;
   for my $img (@img) {
     my $iw = $img->{width} * $height / $img->{height};
     $width += $iw;
   }
-  my $sh = int( $height * WIDTH / $width );
+  my $sh = int( $height * $O{width} / $width );
   return { height => $sh, images => \@img };
 }
 
