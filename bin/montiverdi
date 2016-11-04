@@ -21,27 +21,32 @@ Syntax: $0 [options]
 Options:
     -o, --output <file.png>   Output filename
     -w, --width  <width>      Output width in pixels
+    -h, --height <height>     Output height in pixels
     -a, --across <n>          Number of images on first line
     -g, --grow   <n>          Growth factor for line width
+    -z, --zigzag              Alternate small to large, large to small
 
 EOT
 
 my %O = (
   output => "montage.png",
   width  => WIDTH,
+  height => undef,
   across => undef,
   grow   => 1,
+  zigzag => 0,
 );
 
 GetOptions(
   'output:s' => \$O{output},
   'width:i'  => \$O{width},
+  'height:i' => \$O{height},
   'across:i' => \$O{across},
   'grow:s'   => \$O{grow},
+  'zigzag'   => \$O{zigzag},
 ) or die USAGE;
 
-my @image      = ();
-my $avg_aspect = 0;
+my @image = ();
 find {
   wanted => sub {
     return unless -f;
@@ -49,7 +54,6 @@ find {
     my $name = $_;
     my ( $width, $height ) = imgsize $name;
     return unless defined $width;
-    $avg_aspect += $width / $height;
     push @image,
      {name   => $name,
       width  => $width,
@@ -61,19 +65,28 @@ find {
  },
  ".";
 
-$avg_aspect /= @image;
-
 my @img = shuffle @image;
 my $use = $O{across} // 1 + int sqrt scalar @img;
+my $iter
+ = defined $O{height} ? infinite_iter(@image) : random_iter(@image);
 
-my @spec = ();
-my $dir  = 1;
-while ( $use > 0 && @img >= int $use ) {
-  push @spec,
-   format_row( sort { $dir * ( $a->{aspect} <=> $b->{aspect} ) }
-     splice @img,
-    0, int $use );
-  $dir = -$dir;
+my @spec   = ();
+my $dir    = 1;
+my $height = 0;
+IMAGE: while ( $use > 0 && @img >= int $use ) {
+  my @row = ();
+  for ( 1 .. int $use ) {
+    my $next = $iter->();
+    last IMAGE unless defined $next;
+    push @row, $next;
+  }
+  if ( $O{zigzag} ) {
+    @row = sort { $dir * ( $a->{aspect} <=> $b->{aspect} ) } @row;
+    $dir = -$dir;
+  }
+  push @spec, format_row(@row);
+  $height += $spec[-1]{height};
+  last if defined $O{height} && $height > $O{height};
   $use *= $O{grow};
 }
 
@@ -83,9 +96,10 @@ my $out_h = sum map { $_->{height} } @spec;
 my $im = GD::Image->new( $out_w, $out_h, 1 );
 my $y_pos = 0;
 for my $row (@spec) {
+  say "Row at $y_pos";
   my $x_pos = 0;
   for my $ident ( @{ $row->{images} } ) {
-    say $ident->{name};
+    say "  ", $ident->{name};
     my $src = GD::Image->new( $ident->{name} );
     my $sw  = 1 + int( $ident->{width} * $row->{height} / $ident->{height} );
     $im->copyResampled( $src, $x_pos, $y_pos, 0, 0, $sw, $row->{height},
@@ -102,10 +116,26 @@ for my $row (@spec) {
 
 #say JSON->new->pretty->canonical->encode( \@spec );
 
+sub random_iter {
+  my @item = shuffle @_;
+  return sub { shift @item };
+}
+
+sub infinite_iter {
+  my @item = @_;
+  return sub { }
+   unless @item;
+  my @queue = ();
+  return sub {
+    @queue = shuffle @item unless @queue;
+    return shift @queue;
+  };
+}
+
 sub format_row {
-  my @img = @_;
+  my @img    = @_;
   my $height = max map { $_->{height} } @img;
-  my $width = 0;
+  my $width  = 0;
   for my $img (@img) {
     my $iw = $img->{width} * $height / $img->{height};
     $width += $iw;
