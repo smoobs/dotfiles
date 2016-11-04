@@ -48,6 +48,7 @@ find {
     return unless /\.jpg$/i;
     my $name = $_;
     my ( $width, $height ) = imgsize $name;
+    return unless defined $width;
     $avg_aspect += $width / $height;
     push @image,
      {name   => $name,
