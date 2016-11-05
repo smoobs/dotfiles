@@ -64,16 +64,9 @@ for my $obj (@ARGV) {
   }
 }
 
-sub get_image {
-  my $name = shift;
-  my ( $width, $height ) = imgsize $name;
-  return unless defined $width;
-  return {
-    name   => $name,
-    width  => $width,
-    height => $height,
-    aspect => $width / $height
-  };
+unless (@image) {
+  say "No images to process";
+  exit;
 }
 
 my @img = shuffle @image;
@@ -96,7 +89,12 @@ IMAGE: while ( $use > 0 && @img >= int $use ) {
     $dir = -$dir;
   }
   push @spec, format_row(@row);
-  $height += $spec[-1]{height};
+  my $row_height = $spec[-1]{height};
+  if ( $row_height < 5 ) {
+    say "Stopping because row height is only $row_height pixels.";
+    last IMAGE;
+  }
+  $height += $row_height;
   last if defined $O{height} && $height > $O{height};
   $use *= $O{grow};
 }
@@ -153,6 +151,18 @@ sub format_row {
   }
   my $sh = int( $height * $O{width} / $width );
   return { height => $sh, images => \@img };
+}
+
+sub get_image {
+  my $name = shift;
+  my ( $width, $height ) = imgsize $name;
+  return unless defined $width;
+  return {
+    name   => $name,
+    width  => $width,
+    height => $height,
+    aspect => $width / $height
+  };
 }
 
 # vim:ts=2:sw=2:sts=2:et:ft=perl
