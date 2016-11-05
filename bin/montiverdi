@@ -16,7 +16,7 @@ use Getopt::Long;
 use constant WIDTH => 2560;
 
 use constant USAGE => <<EOT;
-Syntax: $0 [options]
+Syntax: $0 [options] <dirs or images>...
 
 Options:
     -o, --output <file.png>   Output filename
@@ -47,23 +47,34 @@ GetOptions(
 ) or die USAGE;
 
 my @image = ();
-find {
-  wanted => sub {
-    return unless -f;
-    return unless /\.jpg$/i;
-    my $name = $_;
-    my ( $width, $height ) = imgsize $name;
-    return unless defined $width;
-    push @image,
-     {name   => $name,
-      width  => $width,
-      height => $height,
-      aspect => $width / $height
-     };
-  },
-  no_chdir => 1
- },
- ".";
+for my $obj (@ARGV) {
+  if ( -d $obj ) {
+    find {
+      wanted => sub {
+        return unless -f;
+        return unless /\.jpg$/i;
+        push @image, get_image($_);
+      },
+      no_chdir => 1
+     },
+     ".";
+  }
+  else {
+    push @image, get_image($obj);
+  }
+}
+
+sub get_image {
+  my $name = shift;
+  my ( $width, $height ) = imgsize $name;
+  return unless defined $width;
+  return {
+    name   => $name,
+    width  => $width,
+    height => $height,
+    aspect => $width / $height
+  };
+}
 
 my @img = shuffle @image;
 my $use = $O{across} // 1 + int sqrt scalar @img;
