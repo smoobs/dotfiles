@@ -8,10 +8,11 @@ use warnings;
 
 use File::Find;
 use GD;
+use Getopt::Long;
 use Image::Size;
 use JSON;
 use List::Util qw( max shuffle sum );
-use Getopt::Long;
+use Storable qw( dclone );
 
 use constant WIDTH => 2560;
 
@@ -57,7 +58,7 @@ for my $obj (@ARGV) {
       },
       no_chdir => 1
      },
-     ".";
+     $obj;
   }
   else {
     push @image, get_image($obj);
@@ -102,18 +103,23 @@ IMAGE: while ( $use > 0 && @img >= int $use ) {
 my $out_w = $O{width};
 my $out_h = sum map { $_->{height} } @spec;
 
-my $im = GD::Image->new( $out_w, $out_h, 1 );
-my $y_pos = 0;
+my $im          = GD::Image->new( $out_w, $out_h, 1 );
+my $y_pos       = 0;
+my %image_cache = ();
 for my $row (@spec) {
   say "Row at $y_pos";
   my $x_pos = 0;
   for my $ident ( @{ $row->{images} } ) {
     say "  ", $ident->{name};
-    my $src = GD::Image->new( $ident->{name} );
-    my $sw  = 1 + int( $ident->{width} * $row->{height} / $ident->{height} );
-    $im->copyResampled( $src, $x_pos, $y_pos, 0, 0, $sw, $row->{height},
-      $ident->{width}, $ident->{height} );
-    $x_pos += $sw;
+    my $src = $image_cache{ $ident->{name} } //=
+     GD::Image->new( $ident->{name} );
+    $im->copyResampled(
+      $src, $x_pos, $y_pos, 0, 0,
+      $ident->{scaled_width},
+      $ident->{scaled_height},
+      $ident->{width}, $ident->{height}
+    );
+    $x_pos += $ident->{scaled_width};
   }
   $y_pos += $row->{height};
 }
@@ -124,6 +130,9 @@ for my $row (@spec) {
 }
 
 #say JSON->new->pretty->canonical->encode( \@spec );
+
+sub round($) { int 0.5 + $_[0] }
+sub sign($) { $_[0] < 0 ? -1 : $_[0] > 0 ? 1 : 0 }
 
 sub random_iter {
   my @item = shuffle @_;
@@ -137,19 +146,41 @@ sub infinite_iter {
   my @queue = ();
   return sub {
     @queue = shuffle @item unless @queue;
-    return shift @queue;
+    return dclone shift @queue;
   };
 }
 
 sub format_row {
-  my @img    = @_;
+  my @img = @_;
+
   my $height = max map { $_->{height} } @img;
-  my $width  = 0;
+  my $width = 0;
+
   for my $img (@img) {
     my $iw = $img->{width} * $height / $img->{height};
     $width += $iw;
   }
-  my $sh = int( $height * $O{width} / $width );
+
+  my $sh = round( $height * $O{width} / $width );
+
+  my $scaled_width = 0;
+  for my $img (@img) {
+    my $sw = round( $img->{width} * $sh / $img->{height} );
+    $img->{scaled_height} = $sh;
+    $img->{scaled_width}  = $sw;
+    $scaled_width += $sw;
+  }
+
+  my $error = $O{width} - $scaled_width;
+
+  ADJUST: while (1) {
+    for my $img ( shuffle @img ) {
+      last ADJUST unless $error;
+      $img->{scaled_width} += sign $error;
+      $error -= sign $error;
+    }
+  }
+
   return { height => $sh, images => \@img };
 }
 
@@ -163,6 +194,13 @@ sub get_image {
     height => $height,
     aspect => $width / $height
   };
+}
+
+sub show_widths {
+  my @img   = @_;
+  my $total = 0;
+  for my $img (@img) { $total += $img->{scaled_width} }
+  say "$total : ", join " ", map { $_->{scaled_width} } @img;
 }
 
 # vim:ts=2:sw=2:sts=2:et:ft=perl
