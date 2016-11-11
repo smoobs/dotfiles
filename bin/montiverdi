@@ -26,6 +26,7 @@ Options:
     -a, --across <n>          Number of images on first line
     -g, --grow   <n>          Growth factor for line width
     -z, --zigzag              Alternate small to large, large to small
+    -h, --help                See this help.
 
 EOT
 
@@ -36,16 +37,23 @@ my %O = (
   across => undef,
   grow   => 1,
   zigzag => 0,
+  help   => undef,
 );
 
 GetOptions(
   'output:s' => \$O{output},
   'width:i'  => \$O{width},
   'height:i' => \$O{height},
-  'across:i' => \$O{across},
+  'across:s' => \$O{across},
   'grow:s'   => \$O{grow},
   'zigzag'   => \$O{zigzag},
+  'help'     => \$O{help},
 ) or die USAGE;
+
+if ( $O{help} ) {
+  print USAGE;
+  exit;
+}
 
 my @image = ();
 for my $obj (@ARGV) {
