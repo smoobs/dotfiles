@@ -12,6 +12,7 @@ use Getopt::Long;
 use Image::Size;
 use JSON;
 use List::Util qw( max shuffle sum );
+use Path::Class;
 use Storable qw( dclone );
 
 use constant WIDTH => 2560;
@@ -63,15 +64,7 @@ if ( $O{help} ) {
 my @image = ();
 for my $obj (@ARGV) {
   if ( -d $obj ) {
-    find {
-      wanted => sub {
-        return unless -f;
-        return unless /\.jpg$/i;
-        push @image, get_image($_);
-      },
-      no_chdir => 1
-     },
-     $obj;
+    push @image, map { get_image($_) } find_files( dir $obj);
   }
   else {
     push @image, get_image($obj);
@@ -203,10 +196,10 @@ sub format_row {
 
 sub get_image {
   my $name = shift;
-  my ( $width, $height ) = imgsize $name;
+  my ( $width, $height ) = imgsize "$name";
   return unless defined $width;
   return {
-    name   => $name,
+    name   => "$name",
     width  => $width,
     height => $height,
     aspect => $width / $height
@@ -218,6 +211,22 @@ sub show_widths {
   my $total = 0;
   for my $img (@img) { $total += $img->{scaled_width} }
   say "$total : ", join " ", map { $_->{scaled_width} } @img;
+}
+
+sub find_files {
+  my @obj   = sort @_;
+  my @files = ();
+
+  for my $obj (@obj) {
+    if ( -d $obj ) {
+      push @files, find_files( $obj->children );
+    }
+    else {
+      push @files, $obj
+       if $obj->basename =~ /\.jpe?g$/i;
+    }
+  }
+  return @files;
 }
 
 # vim:ts=2:sw=2:sts=2:et:ft=perl
