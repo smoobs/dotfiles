@@ -1,0 +1,99 @@
+#!/usr/bin/env perl
+
+use v5.10;
+
+use autodie;
+use strict;
+use warnings;
+
+use File::Find;
+use GD;
+use Getopt::Long;
+use List::Util qw( max shuffle sum );
+use Path::Class;
+use Storable qw( dclone );
+
+use constant USAGE => <<EOT;
+Syntax: $0 [options] <dirs or images>...
+
+Options:
+    -o, --output              Output directory
+    -h, --help                See this help.
+
+EOT
+
+my %O = (
+  output => 'complecks',
+  help   => undef,
+);
+
+GetOptions(
+  'output' => \$O{output},
+  'help'   => \$O{help},
+) or die USAGE;
+
+if ( $O{help} ) {
+  print USAGE;
+  exit;
+}
+
+my @image = ();
+for my $obj (@ARGV) {
+  if ( -d $obj ) {
+    find {
+      wanted => sub {
+        return unless -f;
+        return unless /\.jpg$/i;
+        push @image, $_;
+      },
+      no_chdir => 1
+     },
+     $obj;
+  }
+  else {
+    push @image, $obj;
+  }
+}
+
+unless (@image) {
+  say "No images to process";
+  exit;
+}
+
+my @comp = ();
+{
+  for my $name (@image) {
+    say $name;
+    my $comp = image_complexity( $name, 200, 200 );
+    next unless defined $comp;
+    push @comp, [$name, $comp];
+  }
+}
+
+{
+  my $next = 100;
+  for my $name ( map { $_->[0] } sort { $b->[1] <=> $a->[1] } @comp ) {
+    my $out = file $O{output}, sprintf "%06d-%s", $next,
+     file($name)->basename;
+    $next += 100;
+
+    say "$name -> $out";
+
+    $out->parent->mkpath;
+    $out->remove;
+    link $name, $out;
+  }
+}
+
+sub image_complexity {
+  my ( $name, $width, $height ) = @_;
+  my $src = GD::Image->new($name);
+  return unless defined $src;
+  my ( $sw, $sh ) = $src->getBounds;
+  my $dst = GD::Image->new( $width, $height, 1 );
+  $dst->copyResampled( $src, 0, 0, 0, 0, $width, $height, $sw, $sh );
+  return length $dst->jpeg;
+}
+
+# vim:ts=2:sw=2:sts=2:et:ft=perl
+
