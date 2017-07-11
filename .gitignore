@@ -3,6 +3,7 @@
 .CFUserTextEncoding
 .DS_Store
 .sw?
+.wp-cli/
 /.AndroidStudio*/
 /.DownloadManager
 /.Horgand
