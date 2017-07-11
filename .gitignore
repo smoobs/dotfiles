@@ -34,6 +34,7 @@
 /.bash_local
 /.bash_logout
 /.bash_profile
+/.bash_sessions/
 /.bazaar
 /.bcast
 /.beebem
@@ -271,6 +272,7 @@
 /.zshrc
 /Applications
 /Box Documents/
+/Creative Cloud Files/
 /Desktop
 /Documents
 /Downloads
@@ -297,5 +299,6 @@
 /mm.cfg
 /node_modules/
 /perl5
+/projects/
 /svn-prop.tmp
 /workspace
