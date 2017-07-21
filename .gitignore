@@ -1,5 +1,8 @@
 .*.crun
 .*.sw?
+.AppleDB/
+.AppleDesktop/
+.AppleDouble/
 .CFUserTextEncoding
 .DS_Store
 .sw?
