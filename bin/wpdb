@@ -9,6 +9,7 @@ use warnings;
 use DBI;
 use Getopt::Long;
 use JSON;
+use List::Util qw( max );
 use PHP::Serialization qw( serialize unserialize );
 use Path::Class;
 use Scalar::Util qw( blessed );
@@ -48,9 +49,19 @@ if ( $verb eq "load" ) {
 
   my %replace = ();
   my $here_base = $C->{base} // die "No base URL defined";
-  for my $base ( get_bases($C) ) {
+  for my $base ( get_config( $C, 'base' ) ) {
     $replace{$base} = $here_base;
   }
+
+  my $here_home = $C->{home};
+  if ( defined $here_home ) {
+    for my $home ( get_config( $C, 'home' ) ) {
+      $replace{$home} = $here_home
+       unless $home eq $here_home;
+    }
+  }
+
+  show_replace(%replace);
 
   for my $sql (@sql) {
     ( my $tbl = $sql->basename ) =~ s/\.sql$//;
@@ -78,14 +89,19 @@ elsif ( $verb eq "save" ) {
   my @tables = get_tables( $C->{db} );
 
   my %replace = ();
-  my ( $canonical, @extra ) = get_canonical($C);
-  die "Multiple canonical hosts" if @extra;
+  for my $key ( 'base', 'home' ) {
+    my ( $canonical, @extra ) = get_canonical( $C, $key );
+    die "Multiple canonical hosts" if @extra;
 
-  if ( defined $canonical ) {
-    for my $base ( get_bases($C) ) {
-      $replace{$base} = $canonical;
+    if ( defined $canonical ) {
+      for my $val ( get_config( $C, $key ) ) {
+        $replace{$val} = $canonical
+         unless $val eq $canonical;
+      }
     }
   }
+
+  show_replace(%replace);
 
   for my $tbl (@tables) {
     my $sql = file $C->{dirs}{sql} // "sql", "$tbl.sql";
@@ -119,6 +135,17 @@ else {
   die USAGE;
 }
 
+sub show_replace {
+  my %rep  = @_;
+  my @from = sort keys %rep;
+  return unless @from;
+  my $width = max map length, @from;
+  say "Replacements:";
+  for my $from (@from) {
+    printf "  %-${width}s => %s\n", $from, $rep{$from};
+  }
+}
+
 sub load_table {
   my ( $sql, $conn ) = @_;
   my $cmd = join " < ",
@@ -148,16 +175,18 @@ sub create_db {
   $dbh->disconnect();
 }
 
-sub get_bases {
+sub get_config {
   my $conf = shift;
+  my $key = shift // "base";
   return grep { defined }
-   map { $_->{base} } values %{ $conf->{site} // {} };
+   map { $_->{$key} } values %{ $conf->{site} // {} };
 }
 
 sub get_canonical {
   my $conf = shift;
+  my $key = shift // "base";
   return grep { defined }
-   map        { $_->{base} }
+   map        { $_->{$key} }
    grep { $_->{canonical} } values %{ $conf->{site} // {} };
 }
 
