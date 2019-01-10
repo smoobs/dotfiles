@@ -1,3 +1,6 @@
-for rc in ~/perl5/perlbrew/etc/bashrc /opt/perl5/etc/bashrc; do
-  [ -e "$rc" ] && . "$rc"
+for rc in ~/perl5/perlbrew/etc/bashrc ~/../andy/perl5/perlbrew/etc/bashrc /opt/perl5/etc/bashrc; do
+  if [ -e "$rc" ]; then
+    . "$rc"
+    break
+  fi
 done
