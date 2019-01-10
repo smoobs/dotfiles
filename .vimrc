@@ -46,6 +46,8 @@ set statusline=%f%4(%m%)%r%h%w\ format:\ %{&ff}\ type:\ %y\ %4l/%L(%3p%%),\ %3v
 set formatprg=perl\ -MText::Autoformat\ -e'autoformat'
 set formatoptions=qro
 
+set number
+
 if executable('ack')
   set grepprg=ack
 endif
