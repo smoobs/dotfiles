@@ -1,9 +1,0 @@
-for home in "$HOME" "$HOME/../andy"; do
-  dir="$HOME/perl5/lib/perl5"
-  if [ -d "$dir" ]; then
-    eval $(perl -I$dir -Mlocal::lib)
-    break
-  fi
-done
-
-# vim:ts=2:sw=2:sts=2:et:ft=sh

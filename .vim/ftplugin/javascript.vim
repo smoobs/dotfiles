@@ -11,13 +11,13 @@ setlocal comments=sr:/*,mb:*,ex:*/,://
 setlocal cinoptions=:0
 
 if executable('ack')
-  setlocal grepprg=ack\ --type=js
+  setlocal grepprg=ag\ --js
 endif
 
 function! s:tidy()
-  if executable('js-beautify')
+  if executable('prettier')
     let l:loc = Get_location()
-    exec ':%!js-beautify -f -'
+    exec ':%!prettier --stdin --stdin-filepath ' . expand('%:t')
     call Set_location(l:loc)
   endif
 endfunction
